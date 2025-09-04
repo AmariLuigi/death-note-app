@@ -27,7 +27,7 @@ const NotebookOverlay = ({ newSubscriber }) => {
   const maxLinesPerPage = 7; // Maximum lines per page (matches Notebook component)
   
   // Define pen offset for alignment with text
-  const penOffset = { x: -8, y: -4 }; // Offset for pen tip position relative to text (in %) - negative values move hand right and down
+  const penOffset = { x: -24, y: -4 }; // Offset for pen tip position relative to text (in %) - negative values move hand right and down
   
   // Get line position from the line div element and text wrapper bounds
   const getLinePosition = (lineNumber) => {
@@ -234,16 +234,43 @@ const NotebookOverlay = ({ newSubscriber }) => {
           currentText += chars[index];
           textElement.textContent = currentText;
           
-          // Move hand slightly for each character using text wrapper bounds
-          const progress = index / Math.max(chars.length - 1, 1);
-          const handX = position.penStartX + (progress * 0.3 * (position.penEndX - position.penStartX));
+          // Calculate hand position based on actual text width
+          // Create a temporary span to measure text width
+          const tempSpan = document.createElement('span');
+          tempSpan.style.cssText = `
+            position: absolute;
+            visibility: hidden;
+            font-family: 'Caveat', cursive;
+            font-size: 4vh;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            transform: rotate(-0.5deg);
+          `;
+          tempSpan.textContent = currentText;
+          document.body.appendChild(tempSpan);
           
-          gsap.to(handRef.current, {
-            duration: charDuration / 1000,
-            right: `${100 - handX}%`,
-            rotation: -1 + (Math.random() * 2), // Small random rotation
-            ease: 'power2.out'
-          });
+          // Get the width of the current text
+          const textWidth = tempSpan.getBoundingClientRect().width;
+          document.body.removeChild(tempSpan);
+          
+          // Calculate hand position relative to text wrapper
+           const textWrapper = textElement.parentElement;
+           if (textWrapper && overlayRef.current) {
+             const textWrapperRect = textWrapper.getBoundingClientRect();
+             const overlayRect = overlayRef.current.getBoundingClientRect();
+             
+             // Calculate the position where the hand should be (at the end of the text)
+             // Add a small offset to move the hand slightly to the right for better alignment
+             const handPixelX = (textWrapperRect.left - overlayRect.left) + textWidth + 8;
+             const handPercentX = (handPixelX / overlayRect.width) * 100;
+             
+             gsap.to(handRef.current, {
+               duration: charDuration / 1000,
+               right: `${100 - handPercentX}%`,
+               rotation: -1 + (Math.random() * 2), // Small random rotation
+               ease: 'power2.out'
+             });
+           }
           
           // Schedule next character
           setTimeout(() => typeNextChar(index + 1), charDuration);
