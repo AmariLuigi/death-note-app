@@ -18,6 +18,8 @@
   /* Position the element so that bottom right corner (pen tip) is at the specified coordinates */
   right: 0;
   bottom: 0;
+  /* Improved responsiveness for text wrapper alignment */
+  transition: right 0.1s ease, bottom 0.1s ease;
   /* Add a small marker for debugging pen tip position */
   --pen-tip-debug: 1; /* Set to 1 to enable debug marker */
 }
@@ -44,6 +46,8 @@
   transform-origin: bottom right;
   bottom: 0;
   right: 0;
+  /* Ensure consistent positioning relative to text wrapper */
+  will-change: transform;
 }
 
 .hand-writing {

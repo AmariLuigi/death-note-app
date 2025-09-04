@@ -27,9 +27,9 @@ const NotebookOverlay = ({ newSubscriber }) => {
   const maxLinesPerPage = 7; // Maximum lines per page (matches Notebook component)
   
   // Define pen offset for alignment with text
-  const penOffset = { x: -2, y: -2 }; // Offset for pen tip position relative to text (in %) - negative values move hand right and down
+  const penOffset = { x: -8, y: -4 }; // Offset for pen tip position relative to text (in %) - negative values move hand right and down
   
-  // Get line position from the line div element
+  // Get line position from the line div element and text wrapper bounds
   const getLinePosition = (lineNumber) => {
     // Determine which page to use based on line number
     // Left page: lines 0-6, Right page: lines 7-13
@@ -45,28 +45,48 @@ const NotebookOverlay = ({ newSubscriber }) => {
     
     if (!lineElement) {
       console.error(`Line element for ${pageSide} page, line ${lineIndexInPage}, actual index ${actualLineIndex} not found`);
-      return { penStartX: 0, penStartY: 0, penEndX: 0, penEndY: 0, page: pageSide };
+      return { textWrapperRect: null, overlayRect: null, penStartX: 0, penStartY: 0, penEndX: 0, penEndY: 0, page: pageSide };
     }
     
-    // Get the bounding rect of the line element
-    const rect = lineElement.getBoundingClientRect();
-    const containerRect = textContainerRef.current.getBoundingClientRect();
+    // Get the text wrapper element within the line
+    const textWrapper = lineElement.querySelector('.text-wrapper');
+    if (!textWrapper) {
+      console.error(`Text wrapper not found for line ${lineNumber}`);
+      return { textWrapperRect: null, overlayRect: null, penStartX: 0, penStartY: 0, penEndX: 0, penEndY: 0, page: pageSide };
+    }
     
-    // Calculate relative position as percentage
-    const x = ((rect.left - containerRect.left) / containerRect.width) * 100;
-    const y = ((rect.top - containerRect.top) / containerRect.height) * 100;
-    const width = (rect.width / containerRect.width) * 100;
-    const height = (rect.height / containerRect.height) * 100;
+    // Get bounding rectangles
+    const textWrapperRect = textWrapper.getBoundingClientRect();
+    const overlayRect = overlayRef.current.getBoundingClientRect();
+    
+    // Calculate position relative to overlay container (for absolute positioning)
+    const relativeLeft = textWrapperRect.left - overlayRect.left;
+    const relativeTop = textWrapperRect.top - overlayRect.top;
+    const relativeRight = relativeLeft + textWrapperRect.width;
+    const relativeBottom = relativeTop + textWrapperRect.height;
+    
+    // Convert to percentages for consistent positioning
+    const leftPercent = (relativeLeft / overlayRect.width) * 100;
+    const topPercent = (relativeTop / overlayRect.height) * 100;
+    const rightPercent = (relativeRight / overlayRect.width) * 100;
+    const bottomPercent = (relativeBottom / overlayRect.height) * 100;
     
     const pageName = pageSide;
     
     return {
       page: pageName,
-      // Add pen position calculations with offset
-      penStartX: x - penOffset.x,
-      penStartY: y + (height / 2) - penOffset.y, // Center vertically
-      penEndX: x + width - penOffset.x,
-      penEndY: y + (height / 2) - penOffset.y // Center vertically
+      textWrapperRect,
+      overlayRect,
+      // Pen positions aligned with text wrapper bounds
+      penStartX: leftPercent,
+      penStartY: topPercent + ((bottomPercent - topPercent) / 2), // Center vertically
+      penEndX: rightPercent,
+      penEndY: topPercent + ((bottomPercent - topPercent) / 2), // Center vertically
+      // Raw pixel coordinates for precise positioning
+      rawLeft: relativeLeft,
+      rawTop: relativeTop,
+      rawRight: relativeRight,
+      rawBottom: relativeBottom
     };
   };
   
@@ -186,7 +206,7 @@ const NotebookOverlay = ({ newSubscriber }) => {
       return;
     }
     
-    // Move hand to starting position
+    // Move hand to starting position using text wrapper bounds
     gsap.to(handRef.current, {
       duration: 0.8,
       right: `${100 - position.penStartX}%`,
@@ -214,7 +234,7 @@ const NotebookOverlay = ({ newSubscriber }) => {
           currentText += chars[index];
           textElement.textContent = currentText;
           
-          // Move hand slightly for each character
+          // Move hand slightly for each character using text wrapper bounds
           const progress = index / Math.max(chars.length - 1, 1);
           const handX = position.penStartX + (progress * 0.3 * (position.penEndX - position.penStartX));
           
